@@ -1,6 +1,13 @@
 {
   "name": "bhry98/keycloak-laravel-auth",
   "description": "Laravel Keycloak authentication via Socialite",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "bhry98",
+      "email": "abdelrahman.mahmoud@valleysoft-eg.com"
+    }
+  ],
   "autoload": {
     "psr-4": {
       "Bhry98\\KeycloakAuth\\": "src/"
@@ -15,6 +22,7 @@
       "providers": [
         "Bhry98\\KeycloakAuth\\Providers\\KeycloakAuthServiceProvider"
       ]
-    }
+    },
+    "minimum-stability": "stable"
   }
 }
