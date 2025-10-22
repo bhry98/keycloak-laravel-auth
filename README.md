@@ -31,7 +31,7 @@ composer require bhry98/keycloak-laravel-auth
 ### Step 2: Publish config file
 
 ```bash
-php artisan vendor:publish --provider="Bhry98\KeycloakAuth\KeycloakAuthServiceProvider" --tag="config"
+php artisan vendor:publish --provider="Bhry98\KeycloakAuth\Providers\KeycloakAuthServiceProvider" --tag="config"
 ```
 
 This will create a config file:
@@ -45,36 +45,20 @@ config/bhry98-keycloak.php
 ### Step 3: Add Keycloak credentials to `.env`
 
 ```env
-KEYCLOAK_BASE_URL=https://sso.valleysoft-eg.com
-KEYCLOAK_REALM=ERP
-KEYCLOAK_CLIENT_ID=SS-Front
+KEYCLOAK_BASE_URL=https://keycloak-domain
+KEYCLOAK_REALM=your-realm-id
+KEYCLOAK_CLIENT_ID=your-client-id
 KEYCLOAK_CLIENT_SECRET=your-client-secret
 KEYCLOAK_REDIRECT_URI=${APP_URL}/auth/callback
 ```
 
 ---
 
-### Step 4: Configure Auth Guard
-
-In `config/auth.php`:
+### Step 4: Register in Filament (optional)
 
 ```php
-'guards' => [
-    'keycloak' => [
-        'driver' => 'keycloak',
-        'provider' => 'users',
-    ],
-],
-```
-
----
-
-### Step 5: Register in Filament (optional)
-
-```php
-->authGuard('keycloak')
 ->authMiddleware([
-    \Filament\Http\Middleware\Authenticate::class,
+    \Bhry98\KeycloakAuth\Http\Middleware\KeycloakMiddleware::class,
 ])
 ```
 
@@ -85,7 +69,16 @@ In `config/auth.php`:
 You can protect routes for both **API** and **Web** like this:
 
 ```php
-Route::middleware(['keycloak'])->group(function () {
+
+// web 
+Route::middleware(['keycloak.web'])->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+});
+
+// api
+Route::middleware(['keycloak.api'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -99,29 +92,10 @@ Authorization: Bearer <access_token>
 ```
 
 ---
-
-## ⚙️ Available Classes
-
-### 🧩 Services
-
-| Class | Description |
-|-------|--------------|
-| `KeycloakService` | Handles API communication with Keycloak |
-| `KeycloakOIDCService` | Manages OpenID Connect (OIDC) login flows |
-| `KeycloakJWTService` | Verifies and decodes JWT tokens |
-| `KeycloakHelpers` | Helper functions (e.g., token parsing, realm URL builder) |
-
-### 🔐 Guards
-
-- `KeycloakGuard` — integrates with Laravel’s Auth system
-
 ### 🧱 Middleware
 
-- `KeycloakMiddleware` — checks for valid Keycloak access tokens
-
-### 🧰 Traits
-
-- `HasKeycloakRoles` — adds role-based logic to your user model
+- `KeycloakMiddleware => keycloak.web` — checks for valid Keycloak access tokens basen on web session
+- `KeycloakApiMiddleware => keycloak.api` — checks for valid Keycloak access tokens basen on api
 
 ---
 
@@ -146,57 +120,33 @@ Authorization: Bearer <access_token>
 
 ```
 src/
+├── config/
+│   └── bhry98-keycloak.php
 ├── Http/
 │   ├── Controllers/
-│   │   ├── LoginController.php
-│   │   └── LogoutController.php
+│   │   └── KeycloakAuthController.php
 │   └── Middleware/
+│       ├── KeycloakApiMiddleware.php
 │       └── KeycloakMiddleware.php
-├── Guards/
-│   └── KeycloakGuard.php
-├── Traits/
-│   └── HasKeycloakRoles.php
-├── Helpers/
-│   └── KeycloakHelpers.php
-├── Services/
-│   ├── KeycloakService.php
-│   ├── KeycloakOIDCService.php
-│   └── KeycloakJWTService.php
+├── Providers/
+│   └── KeycloakAuthServiceProvider.php
 ├── routes/
 │   └── web.php
-└── KeycloakAuthServiceProvider.php
+└── Services/
+    ├── KeycloakJWTService.php
+    └── KeycloakSocialiteProvider.php
 ```
 
 ---
-
-## 🧪 Testing
-
-You can quickly test your guard in Tinker:
-
-```bash
-php artisan tinker
-```
-
-```php
-Auth::guard('keycloak');
-```
-
-Expected output:
-```
-= Bhry98\KeycloakAuth\Guards\KeycloakGuard {#XXXX}
-```
-
----
-
 ## 💡 Example `.env` Setup for API + Filament
 
 ```env
-APP_URL=https://non-prod.portal.valleysoft-eg.com
+APP_URL=https://your-laravel-application-domain
 
-KEYCLOAK_BASE_URL=https://sso.valleysoft-eg.com
-KEYCLOAK_REALM=ERP
-KEYCLOAK_CLIENT_ID=SS-Front
-KEYCLOAK_CLIENT_SECRET=your-secret
+KEYCLOAK_BASE_URL=https://keycloak-domain
+KEYCLOAK_REALM=your-realm-id
+KEYCLOAK_CLIENT_ID=your-client-id
+KEYCLOAK_CLIENT_SECRET=your-client-secret
 KEYCLOAK_REDIRECT_URI=${APP_URL}/auth/callback
 ```
 
@@ -204,8 +154,7 @@ KEYCLOAK_REDIRECT_URI=${APP_URL}/auth/callback
 
 ## 🧑‍💻 Author
 
-**BHR Abdelrahman**  
-Built for **Valleysoft ERP Systems**  
+**BHR Abdelrahman**    
 💼 GitHub: [@bhry98](https://github.com/bhry98)
 
 ---

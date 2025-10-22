@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Illuminate\Http\RedirectResponse as IlluminateResponse;
+
 class KeycloakAuthController extends Controller
 {
     public function redirect(): RedirectResponse|IlluminateResponse
@@ -34,8 +35,10 @@ class KeycloakAuthController extends Controller
 
         Auth::login($user);
         Session::put('keycloak_token', $socialiteUser->token);
-
-        return redirect()->intended(config('bhry98-keycloak.redirect_after_login', '/'));
+        if (session()->has('redirect_to')) {
+            return redirect(session('redirect_to'));
+        }
+        return redirect()->intended(config('bhry98-keycloak.redirect', '/'));
     }
 
     public function logout(): IlluminateResponse

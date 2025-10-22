@@ -3,6 +3,7 @@
 namespace Bhry98\KeycloakAuth\Providers;
 
 use Bhry98\KeycloakAuth\Http\Middleware\KeycloakApiMiddleware;
+use Bhry98\KeycloakAuth\Http\Middleware\KeycloakMiddleware;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
@@ -26,5 +27,6 @@ class KeycloakAuthServiceProvider extends ServiceProvider
             ]);
         });
         Route::aliasMiddleware('keycloak.api', KeycloakApiMiddleware::class);
+        Route::aliasMiddleware('keycloak.web', KeycloakMiddleware::class);
     }
 }
