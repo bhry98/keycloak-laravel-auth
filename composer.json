@@ -1,0 +1,20 @@
+{
+  "name": "bhry98/keycloak-laravel-auth",
+  "description": "Laravel Keycloak authentication via Socialite",
+  "autoload": {
+    "psr-4": {
+      "Bhry98\\KeycloakAuth\\": "src/"
+    }
+  },
+  "require": {
+    "laravel/framework": "12.*",
+    "laravel/socialite": "^5.10"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Bhry98\\KeycloakAuth\\Providers\\KeycloakAuthServiceProvider"
+      ]
+    }
+  }
+}
