@@ -158,6 +158,7 @@ class ComposerStaticInit9f3f1b34bb1fc28f927f166ce96493fb
         'C' => 
         array (
             'Cron\\' => 5,
+            'Creativeorange\\Gravatar\\' => 24,
             'Carbon\\Doctrine\\' => 16,
             'Carbon\\' => 7,
         ),
@@ -460,6 +461,10 @@ class ComposerStaticInit9f3f1b34bb1fc28f927f166ce96493fb
         'Cron\\' => 
         array (
             0 => __DIR__ . '/..' . '/dragonmantank/cron-expression/src/Cron',
+        ),
+        'Creativeorange\\Gravatar\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/creativeorange/gravatar/src',
         ),
         'Carbon\\Doctrine\\' => 
         array (

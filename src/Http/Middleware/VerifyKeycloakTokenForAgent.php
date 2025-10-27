@@ -30,13 +30,18 @@ class VerifyKeycloakTokenForAgent
             $decoded = (new KeycloakJWTService)->decodeToken($token);
             // Attach decoded user
             $request->merge(['auth_user' => (array)$decoded]);
-            $userModel = config('auth.providers.users.model');
+            $userModel = config('bhry98-keycloak.users_model');
+//            dd($decoded);
             $user = $userModel::updateOrCreate(
                 ['email' => $decoded->email],
                 [
-                    'name' => $decoded->name,
-                    'email_verified_at' => now(),
-                    'password' => Hash::make(Str::random(32)), // dummy password
+                    "keycloak_id" => $decoded->sub,
+                    "first_name" => $decoded->given_name,
+                    "last_name" => $decoded->family_name,
+                    "name" => trim("$decoded->given_name $decoded->family_name", " "),
+                    "email" => $decoded->email,
+                    "locale" => $decoded->locale,
+                    "email_verified" => $decoded->email_verified,
                 ]
             );
 

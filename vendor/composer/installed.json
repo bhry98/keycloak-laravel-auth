@@ -136,6 +136,72 @@
             "install-path": "../carbonphp/carbon-doctrine-types"
         },
         {
+            "name": "creativeorange/gravatar",
+            "version": "v1.0.25",
+            "version_normalized": "1.0.25.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/brainpink/gravatar.git",
+                "reference": "21ba6cbe125d57965c58468047ea29dfa822b4d3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/brainpink/gravatar/zipball/21ba6cbe125d57965c58468047ea29dfa822b4d3",
+                "reference": "21ba6cbe125d57965c58468047ea29dfa822b4d3",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^5|^6|^7|^8|^9|^10.0|^11.0|^12.0",
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "nunomaduro/larastan": "^0.6.2|^2.4",
+                "orchestra/testbench": "^5.4|^8.0|^9.0|^10.0",
+                "php": ">=7.2"
+            },
+            "time": "2025-02-22T19:11:54+00:00",
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "Gravatar": "Creativeorange\\Gravatar\\Facades\\Gravatar"
+                    },
+                    "providers": [
+                        "Creativeorange\\Gravatar\\GravatarServiceProvider"
+                    ]
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Creativeorange\\Gravatar\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Jaco Tijssen",
+                    "email": "jaco@creativeorange.nl",
+                    "homepage": "https://www.creativeorange.nl",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A Laravel Gravatar package for retrieving gravatar image URLs or checking the existance of an image.",
+            "keywords": [
+                "avatar",
+                "gravatar",
+                "laravel"
+            ],
+            "support": {
+                "issues": "https://github.com/brainpink/gravatar/issues",
+                "source": "https://github.com/brainpink/gravatar/tree/v1.0.25"
+            },
+            "install-path": "../creativeorange/gravatar"
+        },
+        {
             "name": "dflydev/dot-access-data",
             "version": "v3.0.3",
             "version_normalized": "3.0.3.0",

@@ -15,7 +15,8 @@
   },
   "require": {
     "laravel/framework": "12.*",
-    "laravel/socialite": "^5.10"
+    "laravel/socialite": "^5.10",
+    "creativeorange/gravatar": "~1.0"
   },
   "extra": {
     "laravel": {

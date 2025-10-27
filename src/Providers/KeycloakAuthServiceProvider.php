@@ -4,6 +4,7 @@ namespace Bhry98\KeycloakAuth\Providers;
 
 use Bhry98\KeycloakAuth\Http\Middleware\KeycloakApiMiddleware;
 use Bhry98\KeycloakAuth\Http\Middleware\KeycloakMiddleware;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
@@ -11,10 +12,14 @@ use Bhry98\KeycloakAuth\Services\KeycloakSocialiteProvider;
 
 class KeycloakAuthServiceProvider extends ServiceProvider
 {
+    /**
+     * @throws BindingResolutionException
+     */
     public function boot(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/bhry98-keycloak.php', 'bhry98-keycloak');
         $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
+        $this->loadMigrationsFrom(__DIR__ . '/../migrations');
 
         // Register Socialite driver
         $socialite = $this->app->make(SocialiteFactory::class);
