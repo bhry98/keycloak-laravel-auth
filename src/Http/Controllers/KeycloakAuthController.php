@@ -5,6 +5,7 @@ namespace Bhry98\KeycloakAuth\Http\Controllers;
 use Exception;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
@@ -29,26 +30,40 @@ class KeycloakAuthController extends Controller
         try {
             $socialiteUser = Socialite::driver('keycloak')->user();
             $userModel = config('bhry98-keycloak.users_model');
+//            dd(
+//                $socialiteUser,
+//                Arr::get($socialiteUser->user, 'local', 'en')
+//            );
             $user = $userModel::updateOrCreate(
                 ['email' => $socialiteUser->getEmail()],
                 [
                     "keycloak_id" => $socialiteUser->getId(),
-                    "first_name" => $socialiteUser->user ? $socialiteUser->user['given_name'] : null,
-                    "last_name" => $socialiteUser->user ? $socialiteUser->user['family_name'] : null,
+                    "first_name" => Arr::get($socialiteUser->user, 'given_name'),
+                    "last_name" => Arr::get($socialiteUser->user, 'family_name'),
                     "name" => $socialiteUser->getName(),
                     "email" => $socialiteUser->getEmail(),
                     "avatar" => $socialiteUser->getAvatar(),
-                    "locale" => $socialiteUser->user ? $socialiteUser->user['locale'] : null,
-                    "email_verified" => $socialiteUser->user ? $socialiteUser->user['email_verified'] : null,
+                    "locale" => Arr::get($socialiteUser->user ?? [], 'local', 'en'),
+                    "email_verified" => Arr::get($socialiteUser->user, 'email_verified'),
                 ]
             );
-
+            $tokenParts = explode(".", $socialiteUser->token);
+            $payload = json_decode(base64_decode($tokenParts[1]), true);
+            $realmRoles = Arr::get($payload, "realm_access.roles", []);
+            $clientRoles = Arr::get($payload, "resource_access." . Arr::get($payload, "azp", 'account') . ".roles", []);
             Auth::login($user);
-            Session::put('keycloak_token', $socialiteUser->token);
+            Session::put(
+                [
+                    'keycloak_token' => $socialiteUser->token,
+                    'keycloak_refresh_token' => $socialiteUser->refreshToken,
+                    'keycloak_expires_in' => $socialiteUser->expiresIn,
+                    'keycloak_realm_roles' => $realmRoles,
+                    'keycloak_client_roles' => $clientRoles,
+                ]);
             if (session()->has('redirect_to')) {
                 return redirect(session('redirect_to'));
             }
-            return redirect()->intended(config('bhry98-keycloak.redirect', '/'));
+            return redirect()->intended();
 
         } catch (\Exception $exception) {
             logger()->error($exception);

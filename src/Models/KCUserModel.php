@@ -4,6 +4,7 @@ namespace Bhry98\KeycloakAuth\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Creativeorange\Gravatar\Facades\Gravatar;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -54,11 +55,29 @@ class KCUserModel extends Authenticatable
         ];
     }
 
-    public function getAvatarUrlAttribute(): string
+
+    public function avatarUrl(): Attribute
     {
-        // If the user already has a custom avatar, use it
-        if (!empty($this->avatar)) return $this->avatar;
-        return Gravatar::get($this->email, ['size' => 200]);
+        return new Attribute(
+            get: function () {
+                if (!empty($this->avatar)) return $this->avatar;
+                return Gravatar::get($this->email, ['size' => 200]);
+            }
+        );
+    }
+
+    public function realmRoles(): Attribute
+    {
+        return new Attribute(
+            get: fn() => session("keycloak_realm_roles", [])
+        );
+    }
+
+    public function clientRoles(): Attribute
+    {
+        return new Attribute(
+            get: fn() => session("keycloak_client_roles", [])
+        );
     }
 
 }

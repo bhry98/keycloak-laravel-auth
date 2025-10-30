@@ -32,7 +32,7 @@ class KeycloakUsersService
 
     }
 
-    public static function guard(string $guard): static
+    public static function guard(string $guard = 'web'): static
     {
         return (new static())->make($guard);
     }
@@ -101,6 +101,36 @@ class KeycloakUsersService
         $response = Http::withToken($token)
             ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", ['email' => $email]);
         return $response->json();
+    }
+
+    /**
+     * @throws ConnectionException
+     * @throws Exception
+     */
+    public function syncUserFromKCByEmail(?string $email): ?KCUserModel
+    {
+        if (!$email) return null;
+        $token = $this->getAdminToken();
+        $response = Http::withToken($token)
+            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", ['email' => $email]);
+        if ($response->failed()) {
+            throw new \Exception('Failed to sync user from KC by email: ' . $response->body());
+        }
+        $data = $response->json()[0] ?? null;
+        if (!$data) return null;
+        $localUser = KCUserModel::query()
+            ->updateOrCreate(
+                ['email' => Arr::get($data, 'email')],
+                [
+                    "keycloak_id" => Arr::get($data, 'id'),
+                    "first_name" => Arr::get($data, 'firstName'),
+                    "last_name" => Arr::get($data, 'lastName'),
+                    "name" => trim(Arr::get($data, 'firstName') . " " . Arr::get($data, 'lastName'), " "),
+                    "email" => Arr::get($data, 'email'),
+                    "email_verified" => Arr::get($data, 'emailVerified'),
+                ]
+            );
+        return $localUser->refresh();
     }
 
     /**
