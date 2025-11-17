@@ -47,10 +47,6 @@ class ComposerStaticInit9f3f1b34bb1fc28f927f166ce96493fb
         array (
             'phpseclib3\\' => 11,
         ),
-        'W' => 
-        array (
-            'Webmozart\\Assert\\' => 17,
-        ),
         'T' => 
         array (
             'TijsVerkoyen\\CssToInlineStyles\\' => 31,
@@ -177,10 +173,6 @@ class ComposerStaticInit9f3f1b34bb1fc28f927f166ce96493fb
         'phpseclib3\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib',
-        ),
-        'Webmozart\\Assert\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/webmozart/assert/src',
         ),
         'TijsVerkoyen\\CssToInlineStyles\\' => 
         array (
@@ -353,7 +345,8 @@ class ComposerStaticInit9f3f1b34bb1fc28f927f166ce96493fb
         ),
         'Nette\\' => 
         array (
-            0 => __DIR__ . '/..' . '/nette/utils/src',
+            0 => __DIR__ . '/..' . '/nette/schema/src',
+            1 => __DIR__ . '/..' . '/nette/utils/src',
         ),
         'Monolog\\' => 
         array (

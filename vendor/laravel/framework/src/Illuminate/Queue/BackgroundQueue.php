@@ -2,7 +2,9 @@
 
 namespace Illuminate\Queue;
 
-class DeferredQueue extends SyncQueue
+use Illuminate\Support\Facades\Concurrency;
+
+class BackgroundQueue extends SyncQueue
 {
     /**
      * Push a new job onto the queue.
@@ -16,6 +18,8 @@ class DeferredQueue extends SyncQueue
      */
     public function push($job, $data = '', $queue = null)
     {
-        return \Illuminate\Support\defer(fn () => parent::push($job, $data, $queue));
+        Concurrency::driver('process')->defer(
+            fn () => \Illuminate\Support\Facades\Queue::connection('sync')->push($job, $data, $queue)
+        );
     }
 }

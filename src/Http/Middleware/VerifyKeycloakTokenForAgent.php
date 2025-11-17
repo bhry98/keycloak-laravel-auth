@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 
 class VerifyKeycloakTokenForAgent
 {
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next,$guard = "web")
     {
         $authHeader = $request->header('Authorization');
 
@@ -32,10 +32,12 @@ class VerifyKeycloakTokenForAgent
             $request->merge(['auth_user' => (array)$decoded]);
             $userModel = config('bhry98-keycloak.users_model');
 //            dd($decoded);
+            $realm = config("bhry98-keycloak.guard.$guard.realm");
             $user = $userModel::updateOrCreate(
                 ['email' => $decoded->email],
                 [
                     "keycloak_id" => $decoded->sub,
+                    "keycloak_realm" => $realm,
                     "first_name" => $decoded->given_name,
                     "last_name" => $decoded->family_name,
                     "name" => trim("$decoded->given_name $decoded->family_name", " "),
@@ -54,7 +56,6 @@ class VerifyKeycloakTokenForAgent
                 'message' => $e->getMessage(),
             ], 401);
         }
-        return $next($request);
     }
 
 

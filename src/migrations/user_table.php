@@ -12,6 +12,7 @@ return new class extends Migration {
             $table->id();
             $table->uuid('global_id')->nullable()->unique();
             $table->uuid('keycloak_id')->unique();
+            $table->string('keycloak_realm')->index();
             $table->string('first_name', 50)->nullable();
             $table->string('last_name', 50)->nullable();
             $table->string('name', 200);

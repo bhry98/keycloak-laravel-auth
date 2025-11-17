@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 
 class VerifyKeycloakTokenForApiAgent
 {
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next, $guard = "api")
     {
         $authHeader = $request->header('Authorization');
 
@@ -22,7 +22,7 @@ class VerifyKeycloakTokenForApiAgent
         $token = substr($authHeader, 7);
 
         try {
-            $publicKey = $this->getKeycloakPublicKey();
+            $publicKey = $this->getKeycloakPublicKey($guard);
 
             $decoded = JWT::decode($token, new Key($publicKey, 'RS256'));
 
@@ -41,10 +41,10 @@ class VerifyKeycloakTokenForApiAgent
     /**
      * Get Keycloak public key (cached)
      */
-    protected function getKeycloakPublicKey(): string
+    protected function getKeycloakPublicKey($guard): string
     {
-        return Cache::remember('keycloak_public_key', 3600, function () {
-            $realmUrl = config('services.keycloak.realm_url', 'https://sso.valleysoft-eg.com/realms/ERP');
+        return Cache::remember('keycloak_public_key', 3600, function () use ($guard) {
+            $realmUrl = config("bhry98-keycloak.base_url") . config("bhry98-keycloak.guard.$guard.realm");
 
             $response = Http::get("{$realmUrl}/protocol/openid-connect/certs");
 

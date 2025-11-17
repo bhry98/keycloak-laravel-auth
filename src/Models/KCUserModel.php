@@ -23,6 +23,7 @@ class KCUserModel extends Authenticatable
         "id",
         "global_id",
         "keycloak_id",
+        "keycloak_realm",
         "first_name",
         "last_name",
         "name",

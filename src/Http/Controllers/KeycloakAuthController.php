@@ -17,27 +17,29 @@ use Illuminate\Http\RedirectResponse as IlluminateResponse;
 
 class KeycloakAuthController extends Controller
 {
-    public function redirect(): RedirectResponse|IlluminateResponse
+    public function redirect(string $guard = "web"): RedirectResponse|IlluminateResponse
     {
-        return Socialite::driver('keycloak')->redirect();
+        return Socialite::driver("keycloak.$guard")->redirect();
     }
 
     /**
      * @throws Exception
      */
-    public function callback(Request $request): IlluminateResponse
+    public function callback(Request $request, string $guard = "web"): IlluminateResponse
     {
         try {
-            $socialiteUser = Socialite::driver('keycloak')->user();
+            $socialiteUser = Socialite::driver("keycloak.$guard")->user();
             $userModel = config('bhry98-keycloak.users_model');
 //            dd(
 //                $socialiteUser,
 //                Arr::get($socialiteUser->user, 'local', 'en')
 //            );
+            $realm = config("bhry98-keycloak.guard.$guard.realm");
             $user = $userModel::updateOrCreate(
                 ['email' => $socialiteUser->getEmail()],
                 [
                     "keycloak_id" => $socialiteUser->getId(),
+                    "keycloak_realm" => $realm,
                     "first_name" => Arr::get($socialiteUser->user, 'given_name'),
                     "last_name" => Arr::get($socialiteUser->user, 'family_name'),
                     "name" => $socialiteUser->getName(),
@@ -78,11 +80,11 @@ class KeycloakAuthController extends Controller
         }
     }
 
-    public function logout(): IlluminateResponse
+    public function logout(string $guard = "web"): IlluminateResponse
     {
         Auth::logout();
         Session::flush();
-        $logoutUrl = config('bhry98-keycloak.base_url') . '/realms/' . config('bhry98-keycloak.realm') . '/protocol/openid-connect/logout';
+        $logoutUrl = config('bhry98-keycloak.base_url') . '/realms/' . config("bhry98-keycloak.guard.$guard.realm") . '/protocol/openid-connect/logout';
         return redirect()->away($logoutUrl);
     }
 }

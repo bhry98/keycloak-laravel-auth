@@ -2,6 +2,7 @@
 
 namespace Bhry98\KeycloakAuth\Services;
 
+use Illuminate\Http\Request;
 use Laravel\Socialite\Two\AbstractProvider;
 use Laravel\Socialite\Two\User;
 use Laravel\Socialite\Two\ProviderInterface;
@@ -10,24 +11,45 @@ class KeycloakSocialiteProvider extends AbstractProvider implements ProviderInte
 {
     protected $scopeSeparator = ' ';
     protected $scopes = ['openid', 'email', 'profile'];
+    protected string $guard = 'web';
 
+    public function setGuard(string $guard): static
+    {
+        $this->guard = $guard;
+        return $this;
+    }
+
+    protected function guardConfig(string $key): mixed
+    {
+        return config("bhry98-keycloak.guard.{$this->guard}.{$key}");
+    }
+
+    protected function realm(): string
+    {
+        return $this->guardConfig('realm');
+    }
+
+    protected function base(): string
+    {
+        return config('bhry98-keycloak.base_url');
+    }
     protected function getAuthUrl($state): string
     {
         return $this->buildAuthUrlFromBase(
-            config('bhry98-keycloak.base_url') . '/realms/' . config('bhry98-keycloak.realm') . '/protocol/openid-connect/auth',
+            $this->base() . '/realms/' . $this->realm() . '/protocol/openid-connect/auth',
             $state
         );
     }
 
     protected function getTokenUrl(): string
     {
-        return config('bhry98-keycloak.base_url') . '/realms/' . config('bhry98-keycloak.realm') . '/protocol/openid-connect/token';
+        return $this->base() . '/realms/' . $this->realm() . '/protocol/openid-connect/token';
     }
 
     protected function getUserByToken($token)
     {
         $response = $this->getHttpClient()->get(
-            config('bhry98-keycloak.base_url') . '/realms/' . config('bhry98-keycloak.realm') . '/protocol/openid-connect/userinfo',
+            $this->base() . '/realms/' . $this->realm() . '/protocol/openid-connect/userinfo',
             ['headers' => ['Authorization' => 'Bearer ' . $token]]
         );
 
@@ -48,7 +70,7 @@ class KeycloakSocialiteProvider extends AbstractProvider implements ProviderInte
     protected function getTokenFields($code): array
     {
         return array_merge(parent::getTokenFields($code), [
-            'client_secret' => config('bhry98-keycloak.client_secret'),
+            'client_secret' => $this->guardConfig('client_secret'),
         ]);
     }
 }
