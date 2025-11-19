@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->string('email')->unique();
             $table->string('username')->nullable()->unique();
             $table->string('avatar')->nullable();
+            $table->string('type')->nullable();
             $table->string('locale',5)->default('en');
             $table->boolean('email_verified')->default(false);
             $table->boolean('account_enable')->default(false);

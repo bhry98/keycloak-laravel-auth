@@ -30,6 +30,7 @@ class KCUserModel extends Authenticatable
         "email",
         "avatar",
         "locale",
+        "type",
         "email_verified",
     ];
 
