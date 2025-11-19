@@ -39,7 +39,7 @@ class KeycloakUsersService
 
     public function make(string $guard): static
     {
-        if (in_array($guard, ['api', 'admin', 'web'])) {
+        if (in_array($guard, array_keys(config('bhry98-keycloak.guard', [])))) {
             $this->realm = config("bhry98-keycloak.guard.{$guard}.realm");
             $this->clientId = config("bhry98-keycloak.guard.{$guard}.client_id");
             $this->clientSecret = config("bhry98-keycloak.guard.{$guard}.client_secret");
@@ -107,7 +107,7 @@ class KeycloakUsersService
      * @throws ConnectionException
      * @throws Exception
      */
-    public function syncUserFromKCByEmail(?string $email): ?KCUserModel
+    public function syncUserFromKCByEmail(?string $email, ?string $type = null): ?KCUserModel
     {
         if (!$email) return null;
         $token = $this->getAdminToken();
@@ -122,12 +122,15 @@ class KeycloakUsersService
             ->updateOrCreate(
                 ['email' => Arr::get($data, 'email')],
                 [
+//                    'global_id' => Arr::get($data, 'global_id'),
                     "keycloak_id" => Arr::get($data, 'id'),
+                    "keycloak_realm" => $this->realm,
                     "first_name" => Arr::get($data, 'firstName'),
                     "last_name" => Arr::get($data, 'lastName'),
                     "name" => trim(Arr::get($data, 'firstName') . " " . Arr::get($data, 'lastName'), " "),
                     "email" => Arr::get($data, 'email'),
                     "email_verified" => Arr::get($data, 'emailVerified'),
+                    "type" => $type,
                 ]
             );
         return $localUser->refresh();
@@ -159,7 +162,7 @@ class KeycloakUsersService
      * @throws ConnectionException
      * @throws Exception
      */
-    public function syncAllUsers(): void
+    public function syncAllUsers(?string $defaultType = null): void
     {
         $token = $this->getAdminToken();
         $users = [];
@@ -171,7 +174,10 @@ class KeycloakUsersService
                     'first' => $first,
                     'max' => $max,
                 ]);
-
+//            dd(
+//                $token,
+//                "{$this->baseUrl}/admin/realms/{$this->realm}/users"
+//            );
             if ($response->failed()) {
                 throw new Exception("Failed to fetch users: " . $response->body());
             }
@@ -194,13 +200,16 @@ class KeycloakUsersService
                     ],
                     [
                         'email' => $kcUser['email'],
-                        "keycloak_id" => $kcUser['id'],
+//                        'global_id' => Arr::get($kcUser, 'global_id'),
+                        'keycloak_id' => $kcUser['id'],
+                        "keycloak_realm" => $this->realm,
                         "first_name" => Arr::get($kcUser, 'firstName'),
                         "last_name" => Arr::get($kcUser, 'lastName'),
                         "name" => trim(Arr::get($kcUser, 'firstName') . " " . Arr::get($kcUser, 'lastName'), " "),
                         "email_verified" => Arr::get($kcUser, 'emailVerified', default: false),
                         "account_enable" => Arr::get($kcUser, 'enabled', default: true),
                         'username' => Arr::get($kcUser, 'username'),
+                        "type" => $defaultType,
                     ]
                 );
             }
