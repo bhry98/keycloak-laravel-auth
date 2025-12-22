@@ -4,16 +4,16 @@ namespace Bhry98\KeycloakAuth\Http\Controllers;
 
 use Exception;
 use GuzzleHttp\Exception\ClientException;
+use Illuminate\Http\RedirectResponse as IlluminateResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
-use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Http\Request;
+use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
-use Illuminate\Http\RedirectResponse as IlluminateResponse;
 
 class KeycloakAuthController extends Controller
 {
@@ -30,10 +30,6 @@ class KeycloakAuthController extends Controller
         try {
             $socialiteUser = Socialite::driver("keycloak.$guard")->user();
             $userModel = config('bhry98-keycloak.users_model');
-//            dd(
-//                $socialiteUser,
-//                Arr::get($socialiteUser->user, 'local', 'en')
-//            );
             $realm = config("bhry98-keycloak.guard.$guard.realm");
             $user = $userModel::updateOrCreate(
                 ['email' => $socialiteUser->getEmail()],
@@ -71,20 +67,22 @@ class KeycloakAuthController extends Controller
             logger()->error($exception);
             if ($exception instanceof InvalidStateException) {
                 Cache::clear();
-                return redirect(route('keycloak.login'));
+                return redirect(route('keycloak.login', ['guard' => $guard]));
             } elseif ($exception instanceof ClientException) {
-                return redirect(route('keycloak.login'));
+                return redirect(route('keycloak.login', ['guard' => $guard]));
             } else {
                 throw $exception;
             }
         }
     }
-
     public function logout(string $guard = "web"): IlluminateResponse
     {
         Auth::logout();
         Session::flush();
-        $logoutUrl = config('bhry98-keycloak.base_url') . '/realms/' . config("bhry98-keycloak.guard.$guard.realm") . '/protocol/openid-connect/logout';
+        $logoutUrl = config('bhry98-keycloak.base_url')
+            . '/realms/'
+            . config("bhry98-keycloak.guard.$guard.realm")
+            . '/protocol/openid-connect/logout';
         return redirect()->away($logoutUrl);
     }
 }
