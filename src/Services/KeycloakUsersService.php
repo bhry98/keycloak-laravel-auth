@@ -53,7 +53,6 @@ class KeycloakUsersService
 
     protected function getAdminToken(): ?string
     {
-        Cache::delete("keycloak_admin_token");
         return Cache::remember('keycloak_admin_token', 55, function () {
             $response = Http::asForm()->post("{$this->baseUrl}/realms/{$this->adminRealm}/protocol/openid-connect/token", [
                 'client_id' => $this->adminClientId,

@@ -7,6 +7,7 @@ return [
     'client_id' => env('KEYCLOAK_CLIENT_ID', 'laravel-app'),
     'client_secret' => env('KEYCLOAK_CLIENT_SECRET', ''),
     'realm' => env('KEYCLOAK_REALM', ''),
+    'redirect_after_logout' => env('KEYCLOAK_RED_AFTER_LOGOUT', env("APP_URL")),
     "guard" => [
         "api" => [
             'client_id' => env('KC_API_CLIENT_ID', env('KEYCLOAK_CLIENT_ID', 'laravel-app')),
