@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create((new KCUserAttributesModel)->getTable(), function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->references('id')->on((new KCUserModel)->getTable())->cascadeOnDelete()->cascadeOnUpdate();
-            $table->string('key');
+            $table->string('key')->index();
             $table->longText('value')->nullable();
         });
         Schema::enableForeignKeyConstraints();

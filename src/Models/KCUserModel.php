@@ -28,10 +28,12 @@ class KCUserModel extends Authenticatable
         "last_name",
         "name",
         "email",
+        "username",
         "avatar",
-        "locale",
         "type",
+        "locale",
         "email_verified",
+        "account_enable",
     ];
 
     /**
@@ -44,19 +46,11 @@ class KCUserModel extends Authenticatable
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
-
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'account_enable' => 'boolean',
+    ];
 
     public function avatarUrl(): Attribute
     {

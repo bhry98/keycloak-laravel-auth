@@ -24,7 +24,7 @@ return [
         "admin" => [
             'client_id' => env('KC_ADMIN_CLIENT_ID', env('KEYCLOAK_CLIENT_ID', 'laravel-app')),
             'client_secret' => env('KC_ADMIN_CLIENT_SECRET', env('KEYCLOAK_CLIENT_SECRET', '')),
-            'realm' => env('KC_ADMIN_REALM', env('KEYCLOAK_REALM', '')),
+            'realm' => env('KC_ADMIN_REALM', env('KEYCLOAK_REALM', 'master')),
             'redirect' => env('KC_ADMIN_REDIRECT_URI', env('KEYCLOAK_REDIRECT_URI', '')),
         ],
     ]

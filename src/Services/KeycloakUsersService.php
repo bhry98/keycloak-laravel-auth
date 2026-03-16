@@ -2,219 +2,211 @@
 
 namespace Bhry98\KeycloakAuth\Services;
 
+use Bhry98\KeycloakAuth\Helpers\KeycloakBaseService;
 use Bhry98\KeycloakAuth\Models\KCUserModel;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-class KeycloakUsersService
+class KeycloakUsersService extends KeycloakBaseService
 {
-    protected string $baseUrl;
-    protected string $realm;
-    protected string $clientId;
-    protected string $clientSecret;
-    protected string $adminRealm;
-    protected string $adminClientId;
-    protected string $adminClientSecret;
-
-    public function __construct()
-    {
-        $this->baseUrl = config('bhry98-keycloak.base_url');
-        $this->adminRealm = config('bhry98-keycloak.guard.admin.realm');
-        $this->adminClientId = config('bhry98-keycloak.guard.admin.client_id');
-        $this->adminClientSecret = config('bhry98-keycloak.guard.admin.client_secret');//"M3ppX6hPRMeAKRDkuS5f1xS9tO80dXvj";
-
-//        $this->realm = config('bhry98-keycloak.realm');
-//        $this->clientId = config('bhry98-keycloak.client_id');
-//        $this->clientSecret = config('bhry98-keycloak.client_secret');
-
-    }
-
-    public static function guard(string $guard = 'web'): static
-    {
-        return (new static())->make($guard);
-    }
-
-    public function make(string $guard): static
-    {
-        if (in_array($guard, array_keys(config('bhry98-keycloak.guard', [])))) {
-            $this->realm = config("bhry98-keycloak.guard.{$guard}.realm");
-            $this->clientId = config("bhry98-keycloak.guard.{$guard}.client_id");
-            $this->clientSecret = config("bhry98-keycloak.guard.{$guard}.client_secret");
-        } else {
-            $this->realm = config('bhry98-keycloak.realm');
-            $this->clientId = config('bhry98-keycloak.client_id');
-            $this->clientSecret = config('bhry98-keycloak.client_secret');
-        }
-        return $this;
-    }
-
-    protected function getAdminToken(): ?string
-    {
-        return Cache::remember('keycloak_admin_token', 55, function () {
-            $response = Http::asForm()->post("{$this->baseUrl}/realms/{$this->adminRealm}/protocol/openid-connect/token", [
-                'client_id' => $this->adminClientId,
-                'client_secret' => $this->adminClientSecret,
-                'grant_type' => 'client_credentials',
-            ]);
-            return $response->json('access_token');
-        });
-    }
+    /* =========================================================
+     *  PUBLIC API
+     * ========================================================= */
 
     /**
-     * @throws ConnectionException
-     * @throws Exception
+     * Create new user
      */
-    public function createUser(array $data): int
+    public function create(array $data): KCUserModel
     {
         $token = $this->getAdminToken();
+
+        $payload = $this->buildPayload($data);
+
         $response = Http::withToken($token)
-            ->post("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
-                'username' => $data['username'],
-                'email' => $data['email'],
-                'firstName' => $data['first_name'] ?? '',
-                'lastName' => $data['last_name'] ?? '',
-                'enabled' => true,
-                'credentials' => [
-                    [
-                        'type' => 'password',
-                        'value' => $data['password'],
-                        'temporary' => false,
-                    ],
-                ],
-            ]);
+            ->post("{$this->baseUrl}/admin/realms/{$this->realm}/users", $payload);
+
         if ($response->failed()) {
-            throw new \Exception('Failed to create user: ' . $response->body());
+            throw new Exception("Failed to create user: " . $response->body());
         }
-        return $response->status();
+
+        $location = $response->header('Location');
+        $id = basename($location);
+
+        return $this->syncById($id, Arr::get($data, 'type'));
     }
 
     /**
-     * @throws ConnectionException
+     * Update user
      */
-    public function getUserByEmail(string $email)
+    public function update(string $id, array $data): KCUserModel
+    {
+        $this->updateKeycloakUser($id, $data);
+
+        return $this->syncById($id, Arr::get($data, 'type'));
+    }
+
+    /**
+     * Create or Update
+     */
+    public function createOrUpdate(array $data): KCUserModel
+    {
+        $email = Arr::get($data, 'email');
+
+        if (!$email) {
+            throw new Exception("Email is required.");
+        }
+
+        $existing = $this->findByEmail($email);
+
+        if ($existing) {
+            return $this->update($existing['id'], $data);
+        }
+
+        return $this->create($data);
+    }
+
+    /**
+     * Delete user
+     */
+    public function delete(string $id): bool
     {
         $token = $this->getAdminToken();
+
         $response = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", ['email' => $email]);
+            ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}");
+
+        return $response->ok();
+    }
+
+    /**
+     * Reset password
+     */
+    public function resetPassword(string $id, string $password, bool $temporary = false): KCUserModel
+    {
+        $token = $this->getAdminToken();
+
+        $response = Http::withToken($token)
+            ->put("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}/reset-password", [
+                'type' => 'password',
+                'value' => $password,
+                'temporary' => $temporary,
+            ]);
+
+        if ($response->failed()) {
+            throw new Exception("Failed to reset password: " . $response->body());
+        }
+
+        return $this->syncById($id);
+    }
+
+    /**
+     * Enable / Disable user
+     */
+    public function setStatus(string $id, bool $enabled): KCUserModel
+    {
+        $this->updateKeycloakUser($id, ['enabled' => $enabled]);
+
+        return $this->syncById($id);
+    }
+
+    /* =========================================================
+     *  INTERNAL METHODS
+     * ========================================================= */
+
+    protected function updateKeycloakUser(string $id, array $data): void
+    {
+        $token = $this->getAdminToken();
+
+        $payload = $this->buildPayload($data);
+
+        $response = Http::withToken($token)
+            ->put("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}", $payload);
+
+        if ($response->failed()) {
+            throw new Exception("Failed to update user: " . $response->body());
+        }
+    }
+
+    protected function buildPayload(array $data): array
+    {
+        $payload = [
+            'username'  => Arr::get($data, 'username'),
+            'email'     => Arr::get($data, 'email'),
+            'firstName' => Arr::get($data, 'first_name'),
+            'lastName'  => Arr::get($data, 'last_name'),
+            'enabled'   => Arr::boolean($data, 'enabled', true),
+        ];
+
+        if (Arr::has($data, 'password')) {
+            $payload['credentials'] = [
+                [
+                    'type'      => 'password',
+                    'value'     => Arr::get($data, 'password'),
+                    'temporary' => Arr::get($data, 'temp_password', false),
+                ],
+            ];
+        }
+
+        return array_filter($payload, fn ($v) => !is_null($v));
+    }
+
+    protected function findByEmail(string $email): ?array
+    {
+        $token = $this->getAdminToken();
+
+        $response = Http::withToken($token)
+            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
+                'email' => $email,
+            ]);
+
+        if ($response->failed()) {
+            throw new Exception("Failed to search user: " . $response->body());
+        }
+
+        return $response->json()[0] ?? null;
+    }
+
+    protected function syncById(string $id, ?string $type = null): KCUserModel
+    {
+        $kcUser = $this->fetchKeycloakUserById($id);
+
+        return $this->syncFromKeycloakData($kcUser, $type);
+    }
+
+    protected function fetchKeycloakUserById(string $id): array
+    {
+        $token = $this->getAdminToken();
+
+        $response = Http::withToken($token)
+            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}");
+
+        if ($response->failed()) {
+            throw new Exception("Failed to fetch user: " . $response->body());
+        }
+
         return $response->json();
     }
 
-    /**
-     * @throws ConnectionException
-     * @throws Exception
-     */
-    public function syncUserFromKCByEmail(?string $email, ?string $type = null): ?KCUserModel
+    protected function syncFromKeycloakData(array $kcUser, ?string $type = null): KCUserModel
     {
-        if (!$email) return null;
-        $token = $this->getAdminToken();
-        $response = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", ['email' => $email]);
-        if ($response->failed()) {
-            throw new \Exception('Failed to sync user from KC by email: ' . $response->body());
-        }
-        $data = $response->json()[0] ?? null;
-        if (!$data) return null;
-        $localUser = KCUserModel::query()
-            ->updateOrCreate(
-                ['email' => Arr::get($data, 'email')],
-                [
-//                    'global_id' => Arr::get($data, 'global_id'),
-                    "keycloak_id" => Arr::get($data, 'id'),
-                    "keycloak_realm" => $this->realm,
-                    "first_name" => Arr::get($data, 'firstName'),
-                    "last_name" => Arr::get($data, 'lastName'),
-                    "name" => trim(Arr::get($data, 'firstName') . " " . Arr::get($data, 'lastName'), " "),
-                    "email" => Arr::get($data, 'email'),
-                    "email_verified" => Arr::get($data, 'emailVerified'),
-                    "type" => $type,
-                ]
-            );
-        return $localUser->refresh();
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    public function updateUser(string $id, array $data): bool
-    {
-        $token = $this->getAdminToken();
-        $response = Http::withToken($token)
-            ->put("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}", $data);
-        return $response->ok();
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    public function deleteUser(string $id): bool
-    {
-        $token = $this->getAdminToken();
-        $response = Http::withToken($token)
-            ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}");
-        return $response->ok();
-    }
-
-    /**
-     * @throws ConnectionException
-     * @throws Exception
-     */
-    public function syncAllUsers(?string $defaultType = null): void
-    {
-        $token = $this->getAdminToken();
-        $users = [];
-        $first = 0;
-        $max = 50;
-        do {
-            $response = Http::withToken($token)
-                ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
-                    'first' => $first,
-                    'max' => $max,
-                ]);
-//            dd(
-//                $token,
-//                "{$this->baseUrl}/admin/realms/{$this->realm}/users"
-//            );
-            if ($response->failed()) {
-                throw new Exception("Failed to fetch users: " . $response->body());
-            }
-            $pageUsers = $response->json();
-            $count = count($pageUsers);
-            if ($count === 0) {
-                break;
-            }
-//            dd($pageUsers[0]['email']);
-//            break;
-            foreach ($pageUsers as $kcUser) {
-                $email = Arr::get($kcUser, 'email');
-                if (empty($email)) {
-                    logger()->warning('Skipped user with no email', ['user' => $kcUser]);
-                    continue;
-                }
-                KCUserModel::query()->updateOrCreate(
-                    [
-                        'email' => $kcUser['email']
-                    ],
-                    [
-                        'email' => $kcUser['email'],
-//                        'global_id' => Arr::get($kcUser, 'global_id'),
-                        'keycloak_id' => $kcUser['id'],
-                        "keycloak_realm" => $this->realm,
-                        "first_name" => Arr::get($kcUser, 'firstName'),
-                        "last_name" => Arr::get($kcUser, 'lastName'),
-                        "name" => trim(Arr::get($kcUser, 'firstName') . " " . Arr::get($kcUser, 'lastName'), " "),
-                        "email_verified" => Arr::get($kcUser, 'emailVerified', default: false),
-                        "account_enable" => Arr::get($kcUser, 'enabled', default: true),
-                        'username' => Arr::get($kcUser, 'username'),
-                        "type" => $defaultType,
-                    ]
-                );
-            }
-            $users = array_merge($users, $pageUsers);
-            $first += $max;
-        } while ($count === $max);
-        logger()->info('✅ Synced users from Keycloak', ['total' => count($users)]);
+        return KCUserModel::query()->updateOrCreate(
+            ['email' => $kcUser['email']],
+            [
+                'email'            => $kcUser['email'],
+                'username'         => $kcUser['username'],
+                'keycloak_id'      => $kcUser['id'],
+                'keycloak_realm'   => $this->realm,
+                'first_name'       => Arr::get($kcUser, 'firstName'),
+                'last_name'        => Arr::get($kcUser, 'lastName'),
+                'name'             => trim(
+                    Arr::get($kcUser, 'firstName') . ' ' . Arr::get($kcUser, 'lastName')
+                ),
+                'email_verified'   => Arr::get($kcUser, 'emailVerified', false),
+                'account_enable'   => Arr::get($kcUser, 'enabled', true),
+                'type'             => $type,
+            ]
+        )->refresh();
     }
 }
