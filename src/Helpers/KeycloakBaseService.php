@@ -1,56 +1,81 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Bhry98\KeycloakAuth\Helpers;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
+use Bhry98\KeycloakAuth\Admin\AdminClient;
+use Bhry98\KeycloakAuth\KeycloakManager;
 
+/**
+ * Base of the 1.x admin services. New code should use Keycloak::admin().
+ */
 class KeycloakBaseService
 {
     protected string $baseUrl;
+
     protected string $realm;
+
     protected string $clientId;
+
     protected string $clientSecret;
+
     protected string $adminRealm;
+
     protected string $adminClientId;
+
     protected string $adminClientSecret;
+
+    protected ?string $guardName = null;
 
     public function __construct()
     {
-        $this->baseUrl = config('bhry98-keycloak.base_url');
-        $this->adminRealm = config('bhry98-keycloak.guard.admin.realm');
-        $this->adminClientId = config('bhry98-keycloak.guard.admin.client_id');
-        $this->adminClientSecret = config('bhry98-keycloak.guard.admin.client_secret');//"M3ppX6hPRMeAKRDkuS5f1xS9tO80dXvj";
+        $admin = $this->keycloak()->realm((string) config('bhry98-keycloak.admin.guard', 'admin'));
+
+        $this->baseUrl = $admin->baseUrl;
+        $this->adminRealm = $admin->realm;
+        $this->adminClientId = $admin->clientId;
+        $this->adminClientSecret = $admin->clientSecret;
+
+        $this->make($this->defaultGuard());
     }
 
     public static function guard(string $guard = 'web'): static
     {
-        return (new static())->make($guard);
+        return (new static)->make($guard);
     }
 
     public function make(string $guard): static
     {
-        if (in_array($guard, array_keys(config('bhry98-keycloak.guard', [])))) {
-            $this->realm = config("bhry98-keycloak.guard.{$guard}.realm");
-            $this->clientId = config("bhry98-keycloak.guard.{$guard}.client_id");
-            $this->clientSecret = config("bhry98-keycloak.guard.{$guard}.client_secret");
-        } else {
-            $this->realm = config('bhry98-keycloak.realm');
-            $this->clientId = config('bhry98-keycloak.client_id');
-            $this->clientSecret = config('bhry98-keycloak.client_secret');
-        }
+        $known = array_key_exists($guard, (array) config('bhry98-keycloak.guard', []));
+        $this->guardName = $known ? $guard : '__root';
+
+        $realm = $this->keycloak()->realm($this->guardName);
+        $this->realm = $realm->realm;
+        $this->clientId = $realm->clientId;
+        $this->clientSecret = $realm->clientSecret;
+
         return $this;
+    }
+
+    /** The guard targeted when ::guard() is not called. */
+    protected function defaultGuard(): string
+    {
+        return '__root';
+    }
+
+    protected function admin(): AdminClient
+    {
+        return $this->keycloak()->admin((string) $this->guardName);
     }
 
     protected function getAdminToken(): ?string
     {
-        return Cache::remember('keycloak_admin_token', 55, function () {
-            $response = Http::asForm()->post("{$this->baseUrl}/realms/{$this->adminRealm}/protocol/openid-connect/token", [
-                'client_id' => $this->adminClientId,
-                'client_secret' => $this->adminClientSecret,
-                'grant_type' => 'client_credentials',
-            ]);
-            return $response->json('access_token');
-        });
+        return $this->admin()->token();
+    }
+
+    protected function keycloak(): KeycloakManager
+    {
+        return app(KeycloakManager::class);
     }
 }

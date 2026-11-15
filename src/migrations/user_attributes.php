@@ -1,28 +1,28 @@
 <?php
 
-use Bhry98\KeycloakAuth\Models\KCUserAttributesModel;
-use Bhry98\KeycloakAuth\Models\KCUserModel;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
-        Schema::disableForeignKeyConstraints();
-        Schema::create((new KCUserAttributesModel)->getTable(), function (Blueprint $table) {
+        if (Schema::hasTable('users_attributes')) {
+            return;
+        }
+
+        Schema::create('users_attributes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->references('id')->on((new KCUserModel)->getTable())->cascadeOnDelete()->cascadeOnUpdate();
+            // No database-level foreign key: this migration can run before the users table one.
+            $table->unsignedBigInteger('user_id')->index();
             $table->string('key')->index();
             $table->longText('value')->nullable();
         });
-        Schema::enableForeignKeyConstraints();
     }
 
     public function down(): void
     {
-        Schema::disableForeignKeyConstraints();
-        Schema::dropIfExists((new KCUserAttributesModel)->getTable());
-        Schema::enableForeignKeyConstraints();
+        Schema::dropIfExists('users_attributes');
     }
 };

@@ -2,67 +2,50 @@
 
 namespace Bhry98\KeycloakAuth\Facades;
 
-use Illuminate\Support\Arr;
+use BackedEnum;
+use Bhry98\KeycloakAuth\KeycloakManager;
 use Illuminate\Support\Facades\Auth;
+use UnitEnum;
 
+/**
+ * The Auth facade plus Keycloak role helpers (1.x API).
+ */
 class KCAuth extends Auth
 {
-    /**
-     * @return array
-     *
-     * this function get all users roles from keycloak
-     *
-     * @author Bhr Abdelrahman
-     */
+    /** @return array<int, string> */
     public static function userRoles(): array
     {
-        return array_merge(self::userRealmRoles(), self::userClientRoles());
+        return array_values(array_unique(array_merge(self::userRealmRoles(), self::userClientRoles())));
     }
 
-    /**
-     * @return array
-     *
-     * this function get all users Realm roles from keycloak
-     *
-     * @author Bhr Abdelrahman
-     */
+    /** @return array<int, string> */
     public static function userRealmRoles(): array
     {
-        return self::user()?->realm_roles ?? [];
+        return app(KeycloakManager::class)->token()?->realmRoles()
+            ?? (array) data_get(self::user(), 'realm_roles', []);
     }
 
-    /**
-     * @return array
-     *
-     * this function get all users Client roles from keycloak
-     *
-     * @author Bhr Abdelrahman
-     */
+    /** @return array<int, string> */
     public static function userClientRoles(): array
     {
-        return self::user()?->client_roles ?? [];
+        return app(KeycloakManager::class)->token()?->clientRoles()
+            ?? (array) data_get(self::user(), 'client_roles', []);
     }
 
-
     /**
-     * @param array $roles
-     * @param bool $inClientRoleOnly
-     * @return bool
+     * True when the user has at least one of the roles.
      *
-     * this function check if user hase ability access From `self::userRoles` function
-     *
-     * @author Bhr Abdelrahman
+     * @param  array<int, string|BackedEnum|UnitEnum>  $roles
      */
     public static function hasAccess(array $roles, bool $inClientRoleOnly = false): bool
     {
-        $normalized = array_map(function ($role) {
-            return $role instanceof \BackedEnum
-                ? $role->value
-                : ($role instanceof \UnitEnum ? $role->name : $role);
-        }, $roles);
-        if ($inClientRoleOnly) {
-            return !empty(array_intersect($normalized, self::userClientRoles()));
-        }
-        return !empty(array_intersect($normalized, self::userRoles()));
+        $normalized = array_map(
+            fn ($role) => $role instanceof BackedEnum ? (string) $role->value : ($role instanceof UnitEnum ? $role->name : (string) $role),
+            $roles,
+        );
+
+        $granted = $inClientRoleOnly ? self::userClientRoles() : self::userRoles();
+
+        return array_intersect($normalized, $granted) !== [];
     }
 }

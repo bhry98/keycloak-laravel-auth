@@ -1,0 +1,24 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - src
+
+    level: 5
+
+    tmpDir: build/phpstan
+
+    ignoreErrors:
+        -
+            # A package config file is a real Laravel config file.
+            identifier: larastan.noEnvCallsOutsideOfConfig
+            path: src/config/bhry98-keycloak.php
+        -
+            # 1.x API: `new static` on the base service is part of its public contract.
+            identifier: new.static
+            path: src/Helpers/KeycloakBaseService.php
+        -
+            # Used by consuming applications' test suites, not by the package itself.
+            identifier: trait.unused
+            path: src/Testing/InteractsWithKeycloak.php

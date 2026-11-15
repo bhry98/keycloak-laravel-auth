@@ -1,29 +1,80 @@
 {
-  "name": "bhry98/keycloak-laravel-auth",
-  "description": "Laravel Keycloak authentication via Socialite",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "bhry98",
-      "email": "abdelrahman.mahmoud@valleysoft-eg.com"
-    }
-  ],
-  "autoload": {
-    "psr-4": {
-      "Bhry98\\KeycloakAuth\\": "src/"
-    }
-  },
-  "require": {
-    "laravel/framework": "12.*",
-    "laravel/socialite": "^5.10",
-    "creativeorange/gravatar": "~1.0"
-  },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Bhry98\\KeycloakAuth\\Providers\\KeycloakAuthServiceProvider"
-      ]
+    "name": "bhry98/keycloak-laravel-auth",
+    "description": "Complete Keycloak integration for Laravel: SSO login, stateless JWT API guard, roles & scopes, UMA permissions, service-to-service tokens and a full Admin API client.",
+    "keywords": [
+        "laravel",
+        "keycloak",
+        "sso",
+        "oidc",
+        "openid-connect",
+        "oauth2",
+        "jwt",
+        "authentication",
+        "authorization",
+        "socialite",
+        "guard",
+        "microservices",
+        "laravel-package"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://bhry98.github.io/packages/keycloak-laravel-auth/",
+    "support": {
+        "docs": "https://bhry98.github.io/packages/keycloak-laravel-auth/",
+        "issues": "https://github.com/bhry98/keycloak-laravel-auth/issues",
+        "source": "https://github.com/bhry98/keycloak-laravel-auth"
     },
-    "minimum-stability": "stable"
-  }
+    "authors": [
+        {
+            "name": "Bhr Abdelrahman",
+            "email": "bhrabdelrahman8@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "ext-openssl": "*",
+        "firebase/php-jwt": "^6.10|^7.0",
+        "laravel/framework": "^11.0|^12.0|^13.0",
+        "laravel/socialite": "^5.10"
+    },
+    "require-dev": {
+        "larastan/larastan": "^2.9|^3.0",
+        "laravel/pint": "^1.17",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "pestphp/pest": "^2.34|^3.0|^4.0|^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bhry98\\KeycloakAuth\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Bhry98\\KeycloakAuth\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "format": "pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Bhry98\\KeycloakAuth\\Providers\\KeycloakAuthServiceProvider"
+            ],
+            "aliases": {
+                "Keycloak": "Bhry98\\KeycloakAuth\\Facades\\Keycloak"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
 }

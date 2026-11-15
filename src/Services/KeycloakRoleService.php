@@ -1,146 +1,55 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Bhry98\KeycloakAuth\Services;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Arr;
-use Exception;
-use Illuminate\Http\Client\ConnectionException;
+use Bhry98\KeycloakAuth\Helpers\KeycloakBaseService;
 
-class KeycloakRoleService
+/**
+ * 1.x realm-role service. Without ::guard() it manages the admin guard's
+ * realm, like 1.x did. New code: Keycloak::roles($guard) / Keycloak::users($guard).
+ */
+class KeycloakRoleService extends KeycloakBaseService
 {
-    protected string $baseUrl;
-    protected string $realm;
-    protected string $adminRealm;
-    protected string $adminClientId;
-    protected string $adminClientSecret;
-
-    public function __construct()
+    protected function defaultGuard(): string
     {
-        $this->baseUrl = config('bhry98-keycloak.base_url');
-        $this->adminRealm = config('bhry98-keycloak.guard.admin.realm');
-        $this->adminClientId = config('bhry98-keycloak.guard.admin.client_id');
-        $this->adminClientSecret = config('bhry98-keycloak.guard.admin.client_secret');
+        return array_key_exists('admin', (array) config('bhry98-keycloak.guard', [])) ? 'admin' : '__root';
     }
 
-    protected function getAdminToken(): ?string
-    {
-        return Cache::remember('keycloak_admin_token', 55, function () {
-            $response = Http::asForm()->post("{$this->baseUrl}/realms/{$this->adminRealm}/protocol/openid-connect/token", [
-                'client_id' => $this->adminClientId,
-                'client_secret' => $this->adminClientSecret,
-                'grant_type' => 'client_credentials',
-            ]);
-            return $response->json('access_token');
-        });
-    }
-
-    /**
-     * Create a new realm role
-     */
     public function createRole(string $roleName, ?string $description = null): bool
     {
-        $token = $this->getAdminToken();
-        $response = Http::withToken($token)
-            ->post("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles", [
-                'name' => $roleName,
-                'description' => $description,
-            ]);
-        if ($response->failed()) {
-            throw new Exception("Failed to create role: " . $response->body());
-        }
-        return true;
+        return $this->admin()->roles()->create($roleName, $description);
     }
 
-    /**
-     * Delete a realm role
-     */
     public function deleteRole(string $roleName): bool
     {
-        $token = $this->getAdminToken();
-        $response = Http::withToken($token)
-            ->delete("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}");
-        return $response->ok();
+        return $this->admin()->roles()->delete($roleName);
     }
 
-    /**
-     * Assign a role to a user
-     */
+    /** @return array<int, array<string, mixed>> */
+    public function getAllRoles(): array
+    {
+        return $this->admin()->roles()->all();
+    }
+
     public function assignRoleToUser(string $userId, string $roleName): bool
     {
-        $token = $this->getAdminToken();
-
-        // Get role details
-        $role = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}")
-            ->json();
-
-        $response = Http::withToken($token)
-            ->post("{$this->baseUrl}/admin/realms/{$this->adminRealm}/users/{$userId}/role-mappings/realm", [
-                $role
-            ]);
-
-        return $response->ok();
+        return $this->admin()->users()->assignRealmRoles($userId, [$roleName]);
     }
 
-    /**
-     * Remove a role from a user
-     */
     public function removeRoleFromUser(string $userId, string $roleName): bool
     {
-        $token = $this->getAdminToken();
-
-        // Get role details
-        $role = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}")
-            ->json();
-
-        $response = Http::withToken($token)
-            ->delete("{$this->baseUrl}/admin/realms/{$this->adminRealm}/users/{$userId}/role-mappings/realm", [
-                $role
-            ]);
-
-        return $response->ok();
+        return $this->admin()->users()->removeRealmRoles($userId, [$roleName]);
     }
 
-    /**
-     * Assign a role to a group
-     * @throws ConnectionException
-     */
     public function assignRoleToGroup(string $groupId, string $roleName): bool
     {
-        $token = $this->getAdminToken();
-
-        $role = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}")
-            ->json();
-//dd("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}",$role);
-        $response = Http::withToken($token)
-            ->post("{$this->baseUrl}/admin/realms/{$this->adminRealm}/groups/{$groupId}/role-mappings/realm", [
-                $role
-            ]);
-dd($response->json());
-        return $response->ok();
+        return $this->admin()->groups()->assignRealmRoles($groupId, [$roleName]);
     }
 
-    /**
-     * Remove a role from a group
-     * @throws ConnectionException
-     */
     public function removeRoleFromGroup(string $groupId, string $roleName): bool
     {
-        $token = $this->getAdminToken();
-
-        $role = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->adminRealm}/roles/{$roleName}")
-            ->json();
-
-        $response = Http::withToken($token)
-            ->delete("{$this->baseUrl}/admin/realms/{$this->adminRealm}/groups/{$groupId}/role-mappings/realm", [
-                $role
-            ]);
-
-        return $response->ok();
+        return $this->admin()->groups()->removeRealmRoles($groupId, [$roleName]);
     }
 }

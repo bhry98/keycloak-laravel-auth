@@ -1,212 +1,115 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Bhry98\KeycloakAuth\Services;
 
+use Bhry98\KeycloakAuth\Exceptions\KeycloakException;
 use Bhry98\KeycloakAuth\Helpers\KeycloakBaseService;
 use Bhry98\KeycloakAuth\Models\KCUserModel;
-use Exception;
-use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Http;
 
+/**
+ * 1.x users service: manages a Keycloak user AND keeps the local users
+ * table in sync. For raw Admin API access use Keycloak::users($guard).
+ *
+ *     KeycloakUsersService::guard('web')->create([...]);
+ */
 class KeycloakUsersService extends KeycloakBaseService
 {
-    /* =========================================================
-     *  PUBLIC API
-     * ========================================================= */
-
-    /**
-     * Create new user
-     */
+    /** @param  array<string, mixed>  $data */
     public function create(array $data): KCUserModel
     {
-        $token = $this->getAdminToken();
-
-        $payload = $this->buildPayload($data);
-
-        $response = Http::withToken($token)
-            ->post("{$this->baseUrl}/admin/realms/{$this->realm}/users", $payload);
-
-        if ($response->failed()) {
-            throw new Exception("Failed to create user: " . $response->body());
-        }
-
-        $location = $response->header('Location');
-        $id = basename($location);
+        $id = $this->admin()->users()->create($data);
 
         return $this->syncById($id, Arr::get($data, 'type'));
     }
 
-    /**
-     * Update user
-     */
+    /** @param  array<string, mixed>  $data */
     public function update(string $id, array $data): KCUserModel
     {
-        $this->updateKeycloakUser($id, $data);
+        $this->admin()->users()->update($id, $data);
 
         return $this->syncById($id, Arr::get($data, 'type'));
     }
 
-    /**
-     * Create or Update
-     */
+    /** @param  array<string, mixed>  $data */
     public function createOrUpdate(array $data): KCUserModel
     {
         $email = Arr::get($data, 'email');
 
-        if (!$email) {
-            throw new Exception("Email is required.");
+        if (! $email) {
+            throw new KeycloakException('Email is required.');
         }
 
         $existing = $this->findByEmail($email);
 
-        if ($existing) {
-            return $this->update($existing['id'], $data);
-        }
-
-        return $this->create($data);
+        return $existing ? $this->update($existing['id'], $data) : $this->create($data);
     }
 
-    /**
-     * Delete user
-     */
     public function delete(string $id): bool
     {
-        $token = $this->getAdminToken();
-
-        $response = Http::withToken($token)
-            ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}");
-
-        return $response->ok();
+        return $this->admin()->users()->delete($id);
     }
 
-    /**
-     * Reset password
-     */
     public function resetPassword(string $id, string $password, bool $temporary = false): KCUserModel
     {
-        $token = $this->getAdminToken();
-
-        $response = Http::withToken($token)
-            ->put("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}/reset-password", [
-                'type' => 'password',
-                'value' => $password,
-                'temporary' => $temporary,
-            ]);
-
-        if ($response->failed()) {
-            throw new Exception("Failed to reset password: " . $response->body());
-        }
+        $this->admin()->users()->resetPassword($id, $password, $temporary);
 
         return $this->syncById($id);
     }
 
-    /**
-     * Enable / Disable user
-     */
     public function setStatus(string $id, bool $enabled): KCUserModel
     {
-        $this->updateKeycloakUser($id, ['enabled' => $enabled]);
+        $this->admin()->users()->update($id, ['enabled' => $enabled]);
 
         return $this->syncById($id);
     }
 
-    /* =========================================================
-     *  INTERNAL METHODS
-     * ========================================================= */
-
-    protected function updateKeycloakUser(string $id, array $data): void
+    /** @return array<string, mixed>|null */
+    public function findByEmail(string $email): ?array
     {
-        $token = $this->getAdminToken();
-
-        $payload = $this->buildPayload($data);
-
-        $response = Http::withToken($token)
-            ->put("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}", $payload);
-
-        if ($response->failed()) {
-            throw new Exception("Failed to update user: " . $response->body());
-        }
+        return $this->admin()->users()->findByEmail($email);
     }
 
-    protected function buildPayload(array $data): array
+    /** @return array<string, mixed>|null */
+    public function find(string $id): ?array
     {
-        $payload = [
-            'username'  => Arr::get($data, 'username'),
-            'email'     => Arr::get($data, 'email'),
-            'firstName' => Arr::get($data, 'first_name'),
-            'lastName'  => Arr::get($data, 'last_name'),
-            'enabled'   => Arr::boolean($data, 'enabled', true),
-        ];
-
-        if (Arr::has($data, 'password')) {
-            $payload['credentials'] = [
-                [
-                    'type'      => 'password',
-                    'value'     => Arr::get($data, 'password'),
-                    'temporary' => Arr::get($data, 'temp_password', false),
-                ],
-            ];
-        }
-
-        return array_filter($payload, fn ($v) => !is_null($v));
+        return $this->admin()->users()->find($id);
     }
 
-    protected function findByEmail(string $email): ?array
+    public function syncById(string $id, ?string $type = null): KCUserModel
     {
-        $token = $this->getAdminToken();
-
-        $response = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
-                'email' => $email,
-            ]);
-
-        if ($response->failed()) {
-            throw new Exception("Failed to search user: " . $response->body());
-        }
-
-        return $response->json()[0] ?? null;
+        return $this->syncFromKeycloakData($this->admin()->users()->findOrFail($id), $type);
     }
 
-    protected function syncById(string $id, ?string $type = null): KCUserModel
-    {
-        $kcUser = $this->fetchKeycloakUserById($id);
-
-        return $this->syncFromKeycloakData($kcUser, $type);
-    }
-
-    protected function fetchKeycloakUserById(string $id): array
-    {
-        $token = $this->getAdminToken();
-
-        $response = Http::withToken($token)
-            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$id}");
-
-        if ($response->failed()) {
-            throw new Exception("Failed to fetch user: " . $response->body());
-        }
-
-        return $response->json();
-    }
-
+    /** @param  array<string, mixed>  $kcUser */
     protected function syncFromKeycloakData(array $kcUser, ?string $type = null): KCUserModel
     {
-        return KCUserModel::query()->updateOrCreate(
-            ['email' => $kcUser['email']],
-            [
-                'email'            => $kcUser['email'],
-                'username'         => $kcUser['username'],
-                'keycloak_id'      => $kcUser['id'],
-                'keycloak_realm'   => $this->realm,
-                'first_name'       => Arr::get($kcUser, 'firstName'),
-                'last_name'        => Arr::get($kcUser, 'lastName'),
-                'name'             => trim(
-                    Arr::get($kcUser, 'firstName') . ' ' . Arr::get($kcUser, 'lastName')
-                ),
-                'email_verified'   => Arr::get($kcUser, 'emailVerified', false),
-                'account_enable'   => Arr::get($kcUser, 'enabled', true),
-                'type'             => $type,
-            ]
-        )->refresh();
+        /** @var class-string<Model> $model */
+        $model = config('bhry98-keycloak.users_model', KCUserModel::class);
+
+        $attributes = array_filter([
+            'email' => $kcUser['email'] ?? null,
+            'username' => $kcUser['username'] ?? null,
+            'keycloak_id' => $kcUser['id'],
+            'keycloak_realm' => $this->realm,
+            'first_name' => $kcUser['firstName'] ?? null,
+            'last_name' => $kcUser['lastName'] ?? null,
+            'name' => trim(($kcUser['firstName'] ?? '').' '.($kcUser['lastName'] ?? '')) ?: ($kcUser['username'] ?? ''),
+            'email_verified' => (bool) ($kcUser['emailVerified'] ?? false),
+            'account_enable' => (bool) ($kcUser['enabled'] ?? true),
+            'type' => $type,
+        ], fn ($v) => $v !== null);
+
+        $user = $model::query()->where('keycloak_id', $kcUser['id'])->first()
+            ?? (isset($attributes['email']) ? $model::query()->where('email', $attributes['email'])->first() : null)
+            ?? new $model;
+
+        $user->forceFill($attributes)->save();
+
+        /** @var KCUserModel $user */
+        return $user->refresh();
     }
 }
